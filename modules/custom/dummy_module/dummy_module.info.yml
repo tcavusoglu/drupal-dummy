@@ -1,0 +1,5 @@
+name: 'Custom Dummy Module'
+type: module
+core_version_requirement: ^10
+description: 'This module will help Dummies to do dummy stuff'
+package: 'Timur Cavusoglu Development'
