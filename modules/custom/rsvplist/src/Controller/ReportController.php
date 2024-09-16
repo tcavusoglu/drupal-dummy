@@ -2,7 +2,8 @@
 
 /**
  * @file
- * Provide site administrators with a list of all the RSVP List signups so they know who is attendind their events.
+ * Provide site administrators with a list of all the RSVP List signups,
+ * so they know who is attending their events.
  */
 
 namespace Drupal\rsvplist\Controller;
@@ -14,7 +15,7 @@ class ReportController extends ControllerBase
 
   /**
    * Gets and returns all RSVPs for all nodes.
-   * These are returned as an associative array,with each row containing
+   * These are returned as an associative array, with each row containing
    * the username, the node title, and email of RSVP.
    *
    * @return array|null
