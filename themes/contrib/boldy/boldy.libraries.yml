@@ -1,0 +1,8 @@
+base:
+  version: 8.2
+  css:
+    theme:
+      css/style.css: {}
+  js:
+    js/jquery.autofill.js: {}
+    js/custom.js: {}

@@ -1,0 +1,15 @@
+dummy_module.simplecontent:
+  path: '/dummypath'
+  defaults:
+    _controller: '\Drupal\dummy_module\Controller\DummyController::simpleContent'
+    _title: 'Crash Test Dummies are awesome'
+  requirements:
+    _permission: 'access content'
+
+dummy_module.variablecontent:
+  path: '/dummypath/{name_1}/{name_2}'
+  defaults:
+    _controller: '\Drupal\dummy_module\Controller\DummyController::variableContent'
+    _title: 'Crash Test Dummies are so awesome, they can even send regards'
+  requirements:
+    _permission: 'access content'

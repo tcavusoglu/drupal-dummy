@@ -1,0 +1,262 @@
+<?php
+
+/**
+ * @file
+ * Functions to support theming in the Boldy theme.
+ */
+
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\Unicode;
+use Drupal\Component\Utility\Xss;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Link;
+use Drupal\Core\StringTranslation;
+use Drupal\Core\Template\Attribute;
+use Drupal\Core\Url;
+/**
+ * Implements hook_preprocess_HOOK() for HTML document templates.
+ *
+ * Adds body classes if certain regions have content.
+ */
+function boldy_preprocess_html(&$variables) {
+  // Add information about the number of sidebars.
+  if (!empty($variables['page']['sidebar_first'])) {
+    $variables['attributes']['class'][] = 'sidebar-first';
+  }
+  else {
+    $variables['attributes']['class'][] = 'no-sidebars';
+  }
+
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for page.html.twig.
+ *
+ * Adds body classes if certain regions have content.
+ */
+function boldy_preprocess_page(&$variables) {
+
+  // Set the options that apply to both page and maintenance page.
+  _boldy_process_page($variables);
+
+  // Since the title and the shortcut link are both block level elements,
+  // positioning them next to each other is much simpler with a wrapper div.
+  if (!empty($variables['title_suffix']['add_or_remove_shortcut']) && $variables['title']) {
+    // Add a wrapper div using the title_prefix and title_suffix render
+    // elements.
+    $variables['title_prefix']['shortcut_wrapper'] = array(
+      '#markup' => '<div class="shortcut-wrapper clearfix">',
+      '#weight' => 100,
+    );
+    $variables['title_suffix']['shortcut_wrapper'] = array(
+      '#markup' => '</div>',
+      '#weight' => -99,
+    );
+    // Make sure the shortcut link is the first item in title_suffix.
+    $variables['title_suffix']['add_or_remove_shortcut']['#weight'] = -100;
+  }
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for maintenance-page.html.twig.
+ */
+function boldy_preprocess_maintenance_page(&$variables) {
+  // By default, site_name is set to Drupal if no db connection is available
+  // or during site installation. Setting site_name to an empty string makes
+  // the site and update pages look cleaner.
+  // @see template_preprocess_maintenance_page
+  if (!$variables['db_is_active']) {
+    $variables['site_name'] = '';
+  }
+  // Normally we could attach libraries via hook_page_alter(), but when the
+  // database is inactive it's not called so we add them here.
+  $libraries = array(
+    '#attached' => array(
+      'library' => array(
+        'boldy/maintenance_page',
+      ),
+    ),
+  );
+  \Drupal::service('renderer')->render($libraries);
+  // Set the options that apply to both page and maintenance page.
+  _boldy_process_page($variables);
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for node.html.twig.
+ */
+function boldy_preprocess_node(&$variables) {
+  // Remove the "Add new comment" link on teasers or when the comment form is
+  // displayed on the page.
+  if ($variables['teaser'] || !empty($variables['content']['comments']['comment_form'])) {
+    unset($variables['content']['links']['comment']['#links']['comment-add']);
+  }
+
+  $date = $variables['node']->getCreatedTime();
+  // @TODO Add this choice as a theme setting.
+  $variables['date'] = \Drupal::service('date.formatter')->format($date, 'blog_date');
+
+  $topic_links = [];
+  $comment_count = NULL;
+  // Returns the themed topics string for the node.
+  if ($variables['node']->getType() == 'article') {
+    if ($variables['node']->hasField('field_topics')) {
+      $topics = $variables['node']->get('field_topics')->getValue();
+      if (!empty($topics)) {
+        foreach ($topics as $key => $topic) {
+          $topic_name = $variables['node']->field_topics->get($key)->value;
+          $topic_links[] = Link::fromTextAndUrl($topic_name, Url::fromUri('internal:/blog/' . mb_strtolower($topic_name)))->toString();
+        }
+      }
+      if ($variables['node']->hasField('comment')) {
+        $comment_count = $variables['node']->get('comment')->comment_count;
+      }
+    }
+  }
+  if ($variables['node']->type == 'portfolio') {
+    if ($variables['node']->hasField('field_portfolio_categories')) {
+      $topics = $variables['node']->get('field_portfolio_categories')->getValue();
+      if (!empty($topics)) {
+        foreach ($topics as $key => $topic) {
+          $topic_name = $variables['node']->field_topics->get($key)->value;
+          $topic_links[] = Link::fromTextAndUrl($topic_name, Url::fromUri('internal:/portfolio/' . mb_strtolower($topic_name)))->toString();
+        }
+      }
+      if ($variables['node']->hasField('comment')) {
+        $comment_count = $variables['node']->get('comment')->comment_count;
+      }
+    }
+  }
+  $variables['topic_links']['#markup'] = ' // ' . implode(', ', $topic_links);
+  // Returns the themed comment number string for the node.
+  $comment_link_text = \Drupal::translation()->translate('No comments');
+  if ($comment_count && ($comment_count > 0)) {
+    $comment_link_text = \Drupal::translation()->formatPlural($comment_count, '1 comment', '@count comments');
+  }
+  $add_comment_link = Link::fromTextAndUrl($comment_link_text, Url::fromUri('internal:#comments'))->toString();
+  $variables['comment_number']['#markup'] = ' // ' . $add_comment_link;
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for block.html.twig.
+ */
+function boldy_preprocess_block(&$variables) {
+  switch ($variables['base_plugin_id']) {
+    case 'system_branding_block':
+      // Add a clearfix class to system branding blocks.
+      $variables['attributes']['class'][] = 'clearfix';
+      $variables['site_logo'] = '';
+      if ($variables['content']['site_logo']['#access']) {
+        if (strstr($variables['content']['site_logo']['#uri'], 'boldy')) {
+          $variables['site_logo'] = str_replace('.svg', '.png', $variables['content']['site_logo']['#uri']);
+        }
+        // Use an image style for the uploaded logo.
+        else {
+          $logo = theme_get_setting('logo');
+          if (!empty($logo['path'])) {
+            $style = \Drupal::service('entity_type.manager')->getStorage('image_style')->load('logo');
+            $variables['site_logo'] = $style->buildUrl($logo['path']);
+          }
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implements hook_theme_suggestions_HOOK_alter().
+ */
+function boldy_theme_suggestions_page_title_alter(array &$suggestions, array $variables) {
+  $path_args = explode('/', trim(\Drupal::service('path.current')->getPath(), '/'));
+  if (in_array('blog', $path_args)) {
+    $suggestions[] = 'page_title__blog';
+  }
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for menu.html.twig.
+ */
+function boldy_preprocess_menu(&$variables) {
+  $variables['attributes']['class'][] = 'clearfix';
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter() for Drupal\Core\Form\FormStateInterface;
+ *
+ * Alters the contactblock form to provide a suitable layout.
+ */
+function boldy_form_contact_message_feedback_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+
+  $form['contact_information'] = array(
+    '#markup' => "<div class='leftSide'>",
+    '#weight' => -55,
+  );
+
+  // Name
+  $form['name']['#attributes']['placeholder'][] = $form['name']['#title'] . '*';
+  unset($form['name']['#title']);
+
+  // Mail
+  $form['mail']['#attributes']['placeholder'][] = $form['mail']['#title'] . '*';
+  unset($form['mail']['#title']);
+
+  // Subject
+  $form['subject']['widget'][0]['value']['#attributes']['placeholder'][] = $form['subject']['widget'][0]['#title'] . '*';
+  $form['subject']['widget'][0]['#title'] = '';
+  unset($form['subject']['widget'][0]['value']['#title']);
+
+  $form['contact_information_close'] = array(
+    '#markup' => "</div>",
+    '#weight' => -10,
+  );
+  $form['message_information'] = array(
+    '#markup' => "<div class='rightSide'>",
+    '#weight' => -9,
+  );
+
+  // Message
+  $form['message']['widget'][0]['value']['#attributes']['placeholder'][] = $form['message']['widget'][0]['#title'].'*';
+  $form['message']['widget'][0]['#title'] = '';
+  unset($form['message']['widget'][0]['value']['#title']);
+
+  // Submit
+  $form['message_information_close'] = array(
+    '#markup' => "</div>",
+    '#weight' => 100,
+  );
+
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for field.html.twig.
+ *
+ * @see template_preprocess_field()
+ */
+function boldy_preprocess_field(&$variables) {
+  $element = $variables['element'];
+  if ($element['#field_type'] == 'taxonomy_term_reference') {
+    $variables['title_attributes']['class'][] = 'field-label';
+    if ($variables['element']['#label_display'] == 'inline') {
+      $variables['title_attributes']['class'][] = 'inline';
+    }
+  }
+}
+
+/**
+ * Helper function for handling the site name and slogan.
+ */
+function _boldy_process_page(&$variables) {
+  $site_config = \Drupal::config('system.site');
+  $variables['boldy_linkedin_link'] = Html::escape(theme_get_setting('boldy_linkedin_link'));
+  $variables['linkedin_logo'] = base_path() . \Drupal::service('extension.list.theme')->getPath('boldy') . '/images/ico_linkedin.png';
+  $variables['boldy_twitter_user'] = Html::escape(theme_get_setting('boldy_twitter_user'));
+  $variables['twitter_logo'] = base_path() . \Drupal::service('extension.list.theme')->getPath('boldy') . '/images/ico_twitter.png';
+  $variables['boldy_facebook_link'] = Html::escape(theme_get_setting('boldy_facebook_link'));
+  $variables['facebook_logo'] = base_path() . \Drupal::service('extension.list.theme')->getPath('boldy') . '/images/ico_facebook.png';
+  $variables['rss_logo'] = base_path() . \Drupal::service('extension.list.theme')->getPath('boldy') . '/images/ico_rss.png';
+  $variables['boldy_blurb_link'] = Xss::filterAdmin(theme_get_setting('boldy_blurb_link'));
+  $variables['boldy_blurb_button'] = base_path() . \Drupal::service('extension.list.theme')->getPath('boldy') . '/images/but_blurb.png';
+  $variables['boldy_footer_actions'] = theme_get_setting('boldy_footer_actions');
+  $variables['boldy_actions_hide'] = theme_get_setting('boldy_actions_hide');
+  $variables['boldy_contact_email'] = theme_get_setting('boldy_contact_email');
+}

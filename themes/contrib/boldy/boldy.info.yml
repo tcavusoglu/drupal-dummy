@@ -1,0 +1,34 @@
+name: Boldy
+type: theme
+base theme: classy
+description: A conversion of the Site 5 wordpress theme.
+package: Themes
+core: 8.x
+core_version_requirement: ^8 || ^9 || ^10
+
+stylesheets-remove:
+  - core/assets/vendor/normalize-css/normalize.css
+
+libraries:
+  - boldy/base
+
+regions:
+  site_branding: Site branding
+  nav_bar: Navigation bar
+  search_box: Search box
+  slider: Slider
+  mission: Mission
+  home_boxes: Home boxes
+  sidebar_first: First sidebar
+  content_top: Content top
+  content: Content
+  content_bottom: Content bottom
+  footer_actions_left: Footer actions left
+  footer_actions_right: Footer actions right
+  footer: Footer
+  footer_message: Footer message
+
+# Information added by Drupal.org packaging script on 2023-12-12
+version: '8.x-2.1'
+project: 'boldy'
+datestamp: 1702386331
